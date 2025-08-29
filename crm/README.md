@@ -1,9 +1,14 @@
 # CRM Celery Setup
 
-## Prerequisites
-- Python 3.x
-- Redis installed and running on `redis://localhost:6379/0`
+## Setup Instructions
 
-## Installation
-```bash
-pip install -r requirements.txt
+1. **Install Redis and dependencies**
+   - Install Redis on your system.
+   - Install Python dependencies:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+2. **Run migrations**
+   ```bash
+   python manage.py migrate
