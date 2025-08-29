@@ -1,40 +1,36 @@
-from __future__ import absolute_import, unicode_literals
 from celery import shared_task
-from gql import gql, Client
-from gql.transport.requests import RequestsHTTPTransport
-import datetime
+from datetime import datetime
+import requests
+import os
 
 @shared_task
 def generate_crm_report():
-    transport = RequestsHTTPTransport(
-        url="http://localhost:8000/graphql/",
-        verify=True,
-        retries=3,
-    )
-    client = Client(transport=transport, fetch_schema_from_transport=True)
-
-    query = gql("""
-    {
-      allCustomers {
-        totalCount
-      }
-      allOrders {
-        totalCount
-        totalRevenue
-      }
+    # Example GraphQL query (adapt schema fields if different in your project)
+    query = """
+    query {
+        allCustomers { totalCount }
+        allOrders { totalCount, totalAmount }
     }
-    """)
+    """
 
-    result = client.execute(query)
+    # Call local GraphQL API (assuming it runs on localhost:8000/graphql)
+    response = requests.post(
+        "http://localhost:8000/graphql/",
+        json={'query': query}
+    )
+    data = response.json().get("data", {})
 
-    customers = result.get("allCustomers", {}).get("totalCount", 0)
-    orders = result.get("allOrders", {}).get("totalCount", 0)
-    revenue = result.get("allOrders", {}).get("totalRevenue", 0)
+    total_customers = data.get("allCustomers", {}).get("totalCount", 0)
+    total_orders = data.get("allOrders", {}).get("totalCount", 0)
+    total_revenue = data.get("allOrders", {}).get("totalAmount", 0)
 
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_line = f"{timestamp} - Report: {customers} customers, {orders} orders, {revenue} revenue\n"
+    # Build report string
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report = f"{timestamp} - Report: {total_customers} customers, {total_orders} orders, {total_revenue} revenue\n"
 
-    with open("/tmp/crm_report_log.txt", "a") as f:
-        f.write(log_line)
+    # Log to /tmp/crm_report_log.txt
+    log_file = "/tmp/crm_report_log.txt"
+    with open(log_file, "a") as f:
+        f.write(report)
 
-    return log_line
+    return report
