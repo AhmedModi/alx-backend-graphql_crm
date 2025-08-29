@@ -2,25 +2,33 @@ from datetime import datetime
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
-def log_crm_heartbeat():
-    timestamp = datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
-    with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-        f.write(f"{timestamp} CRM is alive\n")
+def update_low_stock():
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    transport = RequestsHTTPTransport(
+        url="http://localhost:8000/graphql",
+        verify=True,
+        retries=3,
+    )
+    client = Client(transport=transport, fetch_schema_from_transport=False)
 
-    # Optional: check GraphQL hello endpoint
+    mutation = gql("""
+        mutation {
+            updateLowStockProducts {
+                success
+                updatedProducts {
+                    name
+                    stock
+                }
+            }
+        }
+    """)
+
     try:
-        transport = RequestsHTTPTransport(
-            url="http://localhost:8000/graphql",
-            verify=True,
-            retries=3,
-        )
-        client = Client(transport=transport, fetch_schema_from_transport=False)
-        query = gql("{ hello }")
-        result = client.execute(query)
-        # Append hello response to log
-        with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-            f.write(f"{timestamp} GraphQL hello response: {result.get('hello')}\n")
+        result = client.execute(mutation)
+        updates = result["updateLowStockProducts"]["updatedProducts"]
+        with open("/tmp/low_stock_updates_log.txt", "a") as f:
+            for product in updates:
+                f.write(f"[{timestamp}] {product['name']} restocked to {product['stock']}\n")
     except Exception as e:
-        # If GraphQL fails, log error
-        with open("/tmp/crm_heartbeat_log.txt", "a") as f:
-            f.write(f"{timestamp} GraphQL check failed: {e}\n")
+        with open("/tmp/low_stock_updates_log.txt", "a") as f:
+            f.write(f"[{timestamp}] Error updating stock: {e}\n")
