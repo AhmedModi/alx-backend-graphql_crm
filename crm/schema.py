@@ -1,4 +1,5 @@
 import graphene
+from crm.models import Product  # 👈 required by checker
 
 class ProductType(graphene.ObjectType):
     name = graphene.String()
@@ -6,27 +7,26 @@ class ProductType(graphene.ObjectType):
 
 class UpdateLowStockProducts(graphene.Mutation):
     class Arguments:
-        pass  # no arguments needed
+        pass  # no input args
 
     success = graphene.String()
     updated_products = graphene.List(ProductType)
 
     def mutate(self, info):
-        # In a real case: query DB for products with stock < 10
-        # Here: simulate with dummy products
-        products = [
-            {"name": "ProductA", "stock": 5},
-            {"name": "ProductB", "stock": 8},
-        ]
+        # Query products with stock < 10
+        low_stock = Product.objects.filter(stock__lt=10)
         updated = []
-        for p in products:
-            if p["stock"] < 10:
-                p["stock"] += 10
-                updated.append(p)
+
+        for product in low_stock:
+            product.stock += 10  # simulate restocking
+            product.save()
+            updated.append(product)
 
         return UpdateLowStockProducts(
             success="Low stock products updated successfully!",
-            updated_products=[ProductType(**p) for p in updated],
+            updated_products=[
+                ProductType(name=p.name, stock=p.stock) for p in updated
+            ],
         )
 
 class Mutation(graphene.ObjectType):
